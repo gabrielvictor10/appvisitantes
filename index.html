@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro de Visitantes da Igreja</title>
+  <title>Registro de visitantes da Igreja</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 
       <!-- Seletor de Data -->
       <div class="date-picker">
-        <label for="selectedDate">Data do Registro:</label>
+        <label for="selectedDate">Data do registro:</label>
         <input type="date" id="selectedDate">
       </div>
 
@@ -28,29 +28,29 @@
         <input type="tel" id="phone" placeholder="Telefone">
         <div class="checkbox">
           <input type="checkbox" id="firstTime">
-          <label for="firstTime">Primeira vez na igreja</label>
+          <label for="firstTime">Primeira vez na Igreja</label>
         </div>
-        <button id="addVisitorBtn">Adicionar Visitante</button>
+        <button id="addVisitorBtn">Adicionar visitante</button>
       </div>
 
       <!-- Estatísticas -->
       <div class="visitor-stats">
-        <p><strong>Total de Visitantes:</strong> <span id="totalVisitors">0</span></p>
-        <p><strong>Visitantes pela Primeira Vez:</strong> <span id="firstTimeVisitors">0</span></p>
+        <p><strong>Total de visitantes:</strong> <span id="totalVisitors">0</span></p>
+        <p><strong>Visitantes pela primeira vez:</strong> <span id="firstTimeVisitors">0</span></p>
       </div>
 
       <!-- Selecionar Data para Visualização -->
       <div class="date-picker">
-        <label for="viewDate">Visualizar Registros:</label>
+        <label for="viewDate">Visualizar registros:</label>
         <input type="date" id="viewDate">
       </div>
 
       <div class="visitor-list">
-        <h3>Visitantes em <span id="dateView"></span></h3>
+        <h3>Visitantes do dia: <span id="dateView"></span></h3>
         <ul id="visitorList">
           <li>Nenhum visitante registrado nesta data.</li>
         </ul>
-        <button id="downloadBtn">Baixar Lista</button>
+        <button id="downloadBtn">Baixar lista</button>
       </div>
     </div>
   </div>
