@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
   // Configuração do Supabase
-  const supabaseUrl = 'https://<YOUR-SUPABASE-URL>'; // Substitua com seu URL do Supabase
-  const supabaseKey = '<YOUR-SUPABASE-KEY>'; // Substitua com sua chave API
+  const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co>'; // Substitua com seu URL do Supabase
+  const supabaseKey = '<eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw>'; // Substitua com sua chave API
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
   const nameInput = document.getElementById("name");
