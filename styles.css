@@ -6,7 +6,7 @@
 
 body {
   font-family: Arial, sans-serif;
-  background-color: #f7f7f7;
+  background-color: #003d02f3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14,15 +14,15 @@ body {
 }
 
 .navbar {
-  background-color: #003d02; /* Cor verde para a navbar */
+  background-color: #ffe604f5; /* Cor verde para a navbar */
   width: 100%;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 10px 0; /* Ajuste automático ao tamanho do logo */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0);
+  padding: 0px 0; /* Ajuste automático ao tamanho do logo */
 }
 
 .logo {
-  height: 100px; /* Tamanho do logo */
+  height: 150px; /* Tamanho do logo */
 }
 
 .container {
