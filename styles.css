@@ -16,13 +16,13 @@ body {
 .navbar {
   background-color: #003d02; /* Cor verde para a navbar */
   width: 100%;
-  padding: 15px 0; /* Aumentei o padding para dar mais altura à navbar */
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 10px 0; /* Ajuste automático ao tamanho do logo */
 }
 
 .logo {
-  height: 100px; /* Aumentei o tamanho do logo */
+  height: 100px; /* Tamanho do logo */
 }
 
 .container {
@@ -67,12 +67,20 @@ button:hover {
 
 .checkbox {
   display: flex;
-  align-items: center;
+  align-items: center; /* Garante que o checkbox e o texto fiquem alinhados na mesma linha */
+  justify-content: flex-start; /* Alinha à esquerda */
   margin-bottom: 10px;
 }
 
 .checkbox input {
-  margin-right: 5px;
+  margin: 0; /* Remove qualquer espaço entre o checkbox e o texto */
+}
+
+.checkbox label {
+  margin: 0; /* Remove qualquer margem do texto */
+  font-size: 16px; /* Tamanho legível do texto */
+  white-space: nowrap; /* Impede quebra de linha no texto */
+  display: inline; /* Garante que o texto e o checkbox estejam na mesma linha */
 }
 
 .date-picker {
