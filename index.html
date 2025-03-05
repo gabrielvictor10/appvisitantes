@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Visitantes da Igreja</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <img src="logo/logo.png" alt="Logo da Igreja" class="logo">
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>Registro de Visitantes</h2>
+
+      <!-- Seletor de Data -->
+      <div class="date-picker">
+        <label for="selectedDate">Data do Registro:</label>
+        <input type="date" id="selectedDate">
+      </div>
+
+      <div class="form">
+        <input type="text" id="name" placeholder="Nome">
+        <input type="tel" id="phone" placeholder="Telefone">
+        <div class="checkbox">
+          <input type="checkbox" id="firstTime">
+          <label for="firstTime">Primeira vez na igreja</label>
+        </div>
+        <button id="addVisitorBtn">Adicionar Visitante</button>
+      </div>
+
+      <!-- Selecionar Data para Visualização -->
+      <div class="date-picker">
+        <label for="viewDate">Visualizar Registros:</label>
+        <input type="date" id="viewDate">
+      </div>
+
+      <div class="visitor-list">
+        <h3>Visitantes em <span id="dateView"></span></h3>
+        <ul id="visitorList">
+          <li>Nenhum visitante registrado nesta data.</li>
+        </ul>
+        <button id="downloadBtn">Baixar Lista</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
