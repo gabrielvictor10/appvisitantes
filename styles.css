@@ -44,6 +44,11 @@ body {
 h2, h3 {
   text-align: center;
   margin-bottom: 10px;
+  line-height: 1.8; /* Espaçamento entre as linhas dos títulos */
+}
+
+p {
+  line-height: 1.8; /* Espaçamento entre as linhas de parágrafos */
 }
 
 .form input, .form button {

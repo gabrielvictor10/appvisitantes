@@ -1,9 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // Configuração do Supabase
-  const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co>'; // Substitua com seu URL do Supabase
-  const supabaseKey = '<eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw>'; // Substitua com sua chave API
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
   const nameInput = document.getElementById("name");
   const phoneInput = document.getElementById("phone");
   const firstTimeCheckbox = document.getElementById("firstTime");
@@ -14,7 +9,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const dateViewSpan = document.getElementById("dateView");
   const downloadBtn = document.getElementById("downloadBtn");
 
-  // Função para formatar data
+  const totalVisitorsSpan = document.getElementById("totalVisitors");
+  const firstTimeVisitorsSpan = document.getElementById("firstTimeVisitors");
+
+  let visitors = JSON.parse(localStorage.getItem("churchVisitors") || "[]");
+
   function formatDate(date) {
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -23,57 +22,48 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Atualiza a lista de visitantes conforme a data selecionada
-  async function updateViewDate() {
+  function updateStats() {
+    const totalVisitors = visitors.length;
+    const firstTimeVisitors = visitors.filter(v => v.isFirstTime).length;
+    
+    totalVisitorsSpan.textContent = totalVisitors;
+    firstTimeVisitorsSpan.textContent = firstTimeVisitors;
+  }
+
+  function updateViewDate() {
     const selectedViewDate = viewDateInput.value;
     dateViewSpan.textContent = selectedViewDate
       ? formatDate(new Date(selectedViewDate))
       : "Selecione uma data";
 
-    const { data, error } = await supabase
-      .from('visitors')
-      .select('*')
-      .eq('date', formatDate(new Date(selectedViewDate)));
+    const filteredVisitors = visitors.filter(
+      (v) => v.date === formatDate(new Date(selectedViewDate))
+    );
 
-    if (error) {
-      alert('Erro ao buscar visitantes: ' + error.message);
-      return;
-    }
+    visitorList.innerHTML = filteredVisitors.length
+      ? filteredVisitors
+          .map(
+            (v) =>
+              `<li>
+                <p>${v.name} - ${v.phone} ${v.isFirstTime ? "(Primeira vez)" : ""}</p>
+                <button class="remove-btn" data-id="${v.id}">Remover</button>
+              </li>`
+          )
+          .join(" ")
+      : "<li>Nenhum visitante registrado nesta data.</li>";
 
-    visitorList.innerHTML =
-      data.length > 0
-        ? data
-            .map(
-              (v) =>
-                `<li>
-                  <p>${v.name} - ${v.phone} ${v.isFirstTime ? "(Primeira vez)" : ""}</p>
-                  <button class="remove-btn" data-id="${v.id}">Remover</button>
-                </li>`
-            )
-            .join("")
-        : "<li>Nenhum visitante registrado nesta data.</li>";
-
-    // Lidar com o botão de remoção
     document.querySelectorAll(".remove-btn").forEach((btn) => {
-      btn.addEventListener("click", async function () {
-        const visitorId = this.getAttribute("data-id");
-        const { error } = await supabase
-          .from('visitors')
-          .delete()
-          .eq('id', visitorId);
-
-        if (error) {
-          alert('Erro ao remover visitante: ' + error.message);
-          return;
-        }
-
-        updateViewDate(); // Atualiza a lista após a remoção
+      btn.addEventListener("click", function () {
+        const visitorId = parseInt(this.getAttribute("data-id"));
+        visitors = visitors.filter((v) => v.id !== visitorId);
+        localStorage.setItem("churchVisitors", JSON.stringify(visitors));
+        updateStats(); // Atualiza as estatísticas após remover um visitante
+        updateViewDate();
       });
     });
   }
 
-  // Adiciona um novo visitante
-  addVisitorBtn.addEventListener("click", async function () {
+  addVisitorBtn.addEventListener("click", function () {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
     const date = selectedDateInput.value;
@@ -84,50 +74,38 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const newVisitor = {
+      id: Date.now(),
       name,
       phone,
       isFirstTime: firstTimeCheckbox.checked,
       date: formatDate(new Date(date)),
     };
 
-    const { data, error } = await supabase
-      .from('visitors')
-      .insert([newVisitor]);
+    visitors.push(newVisitor);
+    localStorage.setItem("churchVisitors", JSON.stringify(visitors));
 
-    if (error) {
-      alert("Erro ao adicionar visitante: " + error.message);
-      return;
-    }
-
-    // Limpa os campos e atualiza a lista
     nameInput.value = "";
     phoneInput.value = "";
     firstTimeCheckbox.checked = false;
+    
+    updateStats(); // Atualiza as estatísticas sempre que um visitante for adicionado
     updateViewDate();
   });
 
-  // Atualiza a visualização quando a data mudar
   viewDateInput.addEventListener("change", updateViewDate);
 
-  // Baixa a lista de visitantes como um arquivo de texto
-  downloadBtn.addEventListener("click", async function () {
+  downloadBtn.addEventListener("click", function () {
     const selectedViewDate = viewDateInput.value;
-    const { data, error } = await supabase
-      .from('visitors')
-      .select('*')
-      .eq('date', formatDate(new Date(selectedViewDate)));
+    const filteredVisitors = visitors.filter(
+      (v) => v.date === formatDate(new Date(selectedViewDate))
+    );
 
-    if (error) {
-      alert("Erro ao baixar visitantes: " + error.message);
-      return;
-    }
-
-    if (data.length === 0) {
+    if (filteredVisitors.length === 0) {
       alert("Não há visitantes para baixar nesta data.");
       return;
     }
 
-    const text = data
+    const text = filteredVisitors
       .map((v) => `Nome: ${v.name}\nTelefone: ${v.phone}\n`)
       .join("\n");
 
@@ -140,5 +118,6 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.removeChild(link);
   });
 
-  updateViewDate(); // Atualiza a visualização ao carregar a página
+  updateStats(); // Inicializa as estatísticas ao carregar a página
+  updateViewDate(); // Exibe os registros ao carregar a página
 });
