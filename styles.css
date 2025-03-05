@@ -55,7 +55,7 @@ h2, h3 {
 }
 
 button {
-  background-color: #003d02;
+  background-color: #003d02; /* Cor verde para o botão */
   color: white;
   cursor: pointer;
   border: none;
@@ -124,9 +124,15 @@ li p {
 }
 
 button#downloadBtn {
-  background-color: #008CBA;
+  background-color: #003d02; /* Cor verde para o botão */
+  color: white;
+  cursor: pointer;
+  border: none;
+  width: 100%; /* Para manter o botão com o mesmo tamanho do outro */
+  padding: 10px;
+  border-radius: 4px;
 }
 
 button#downloadBtn:hover {
-  background-color: #007B9E;
+  background-color: #45a049; /* Cor de hover igual ao botão "Adicionar Visitante" */
 }
