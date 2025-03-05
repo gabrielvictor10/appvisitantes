@@ -1,68 +1,9 @@
-<<<<<<< HEAD
-// Configuração do Supabase
-const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
-const SUPABASE_ANON_KEY = "SUA_CHAVE_ANONIMA";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Adicionar visitante
-document.getElementById("addVisitorBtn").addEventListener("click", async () => {
-    const name = document.getElementById("name").value;
-    const phone = document.getElementById("phone").value;
-    const firstTime = document.getElementById("firstTime").checked;
-    const date = new Date().toISOString().split("T")[0];
-
-    if (!name) {
-        alert("Por favor, preencha o nome.");
-        return;
-    }
-
-    const { error } = await supabase.from("visitantes").insert([
-        { nome: name, telefone: phone, primeira_vez: firstTime, data: date }
-    ]);
-
-    if (error) {
-        alert("Erro ao adicionar visitante.");
-    } else {
-        alert("Visitante cadastrado com sucesso!");
-        loadVisitors();
-    }
-});
-
-// Carregar visitantes da data selecionada
-document.getElementById("viewDate").addEventListener("change", loadVisitors);
-
-async function loadVisitors() {
-    const date = document.getElementById("viewDate").value;
-    document.getElementById("dateView").textContent = date;
-
-    const { data, error } = await supabase
-        .from("visitantes")
-        .select("*")
-        .eq("data", date);
-
-    if (error) {
-        alert("Erro ao carregar visitantes.");
-        return;
-    }
-
-    const list = document.getElementById("visitorList");
-    list.innerHTML = "";
-
-    if (data.length === 0) {
-        list.innerHTML = "<li>Nenhum visitante registrado nesta data.</li>";
-    } else {
-        data.forEach(visitor => {
-            const li = document.createElement("li");
-            li.textContent = `${visitor.nome} - ${visitor.telefone} - ${visitor.primeira_vez ? "Primeira vez" : "Retorno"}`;
-            list.appendChild(li);
-        });
-    }
-}
-
-// Carregar visitantes ao iniciar
-document.addEventListener("DOMContentLoaded", loadVisitors);
-=======
 document.addEventListener("DOMContentLoaded", function () {
+  // Configuração do Supabase
+  const supabaseUrl = 'https://<YOUR-SUPABASE-URL>'; // Substitua com seu URL do Supabase
+  const supabaseKey = '<YOUR-SUPABASE-KEY>'; // Substitua com sua chave API
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
   const nameInput = document.getElementById("name");
   const phoneInput = document.getElementById("phone");
   const firstTimeCheckbox = document.getElementById("firstTime");
@@ -73,8 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const dateViewSpan = document.getElementById("dateView");
   const downloadBtn = document.getElementById("downloadBtn");
 
-  let visitors = JSON.parse(localStorage.getItem("churchVisitors") || "[]");
-
+  // Função para formatar data
   function formatDate(date) {
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -83,41 +23,57 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function updateViewDate() {
+  // Atualiza a lista de visitantes conforme a data selecionada
+  async function updateViewDate() {
     const selectedViewDate = viewDateInput.value;
     dateViewSpan.textContent = selectedViewDate
       ? formatDate(new Date(selectedViewDate))
       : "Selecione uma data";
 
-    const filteredVisitors = visitors.filter(
-      (v) => v.date === formatDate(new Date(selectedViewDate))
-    );
+    const { data, error } = await supabase
+      .from('visitors')
+      .select('*')
+      .eq('date', formatDate(new Date(selectedViewDate)));
 
-    visitorList.innerHTML = filteredVisitors.length
-      ? filteredVisitors
-          .map(
-            (v) =>
-              `<li>
-                <p>${v.name} - ${v.phone} ${
-                v.isFirstTime ? "(Primeira vez)" : ""
-              }</p>
-                <button class="remove-btn" data-id="${v.id}">Remover</button>
-              </li>`
-          )
-          .join("")
-      : "<li>Nenhum visitante registrado nesta data.</li>";
+    if (error) {
+      alert('Erro ao buscar visitantes: ' + error.message);
+      return;
+    }
 
+    visitorList.innerHTML =
+      data.length > 0
+        ? data
+            .map(
+              (v) =>
+                `<li>
+                  <p>${v.name} - ${v.phone} ${v.isFirstTime ? "(Primeira vez)" : ""}</p>
+                  <button class="remove-btn" data-id="${v.id}">Remover</button>
+                </li>`
+            )
+            .join("")
+        : "<li>Nenhum visitante registrado nesta data.</li>";
+
+    // Lidar com o botão de remoção
     document.querySelectorAll(".remove-btn").forEach((btn) => {
-      btn.addEventListener("click", function () {
-        const visitorId = parseInt(this.getAttribute("data-id"));
-        visitors = visitors.filter((v) => v.id !== visitorId);
-        localStorage.setItem("churchVisitors", JSON.stringify(visitors));
-        updateViewDate();
+      btn.addEventListener("click", async function () {
+        const visitorId = this.getAttribute("data-id");
+        const { error } = await supabase
+          .from('visitors')
+          .delete()
+          .eq('id', visitorId);
+
+        if (error) {
+          alert('Erro ao remover visitante: ' + error.message);
+          return;
+        }
+
+        updateViewDate(); // Atualiza a lista após a remoção
       });
     });
   }
 
-  addVisitorBtn.addEventListener("click", function () {
+  // Adiciona um novo visitante
+  addVisitorBtn.addEventListener("click", async function () {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
     const date = selectedDateInput.value;
@@ -128,36 +84,50 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const newVisitor = {
-      id: Date.now(),
       name,
       phone,
       isFirstTime: firstTimeCheckbox.checked,
       date: formatDate(new Date(date)),
     };
 
-    visitors.push(newVisitor);
-    localStorage.setItem("churchVisitors", JSON.stringify(visitors));
+    const { data, error } = await supabase
+      .from('visitors')
+      .insert([newVisitor]);
 
+    if (error) {
+      alert("Erro ao adicionar visitante: " + error.message);
+      return;
+    }
+
+    // Limpa os campos e atualiza a lista
     nameInput.value = "";
     phoneInput.value = "";
     firstTimeCheckbox.checked = false;
     updateViewDate();
   });
 
+  // Atualiza a visualização quando a data mudar
   viewDateInput.addEventListener("change", updateViewDate);
 
-  downloadBtn.addEventListener("click", function () {
+  // Baixa a lista de visitantes como um arquivo de texto
+  downloadBtn.addEventListener("click", async function () {
     const selectedViewDate = viewDateInput.value;
-    const filteredVisitors = visitors.filter(
-      (v) => v.date === formatDate(new Date(selectedViewDate))
-    );
+    const { data, error } = await supabase
+      .from('visitors')
+      .select('*')
+      .eq('date', formatDate(new Date(selectedViewDate)));
 
-    if (filteredVisitors.length === 0) {
+    if (error) {
+      alert("Erro ao baixar visitantes: " + error.message);
+      return;
+    }
+
+    if (data.length === 0) {
       alert("Não há visitantes para baixar nesta data.");
       return;
     }
 
-    const text = filteredVisitors
+    const text = data
       .map((v) => `Nome: ${v.name}\nTelefone: ${v.phone}\n`)
       .join("\n");
 
@@ -170,6 +140,5 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.removeChild(link);
   });
 
-  updateViewDate();
+  updateViewDate(); // Atualiza a visualização ao carregar a página
 });
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2

@@ -10,44 +10,19 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-<<<<<<< HEAD
-}
-
-.navbar {
-  width: 100%;
-  background-color: #254d1c;
-  color: white;
-  padding: 10px;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-=======
   height: 100vh;
 }
 
 .navbar {
-  background-color: #fff;
+  background-color: #003d02; /* Cor verde para a navbar */
   width: 100%;
-  padding: 10px 0;
+  padding: 15px 0; /* Aumentei o padding para dar mais altura à navbar */
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
 }
 
 .logo {
-  height: 50px;
-<<<<<<< HEAD
-  margin-right: 10px;
-}
-
-.container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-=======
+  height: 100px; /* Aumentei o tamanho do logo */
 }
 
 .container {
@@ -55,7 +30,6 @@ body {
   justify-content: center;
   align-items: center;
   flex-grow: 1;
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
 }
 
 .card {
@@ -72,11 +46,7 @@ h2, h3 {
   margin-bottom: 10px;
 }
 
-<<<<<<< HEAD
-.form input, .form button, .date-picker input {
-=======
 .form input, .form button {
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
   width: 100%;
   padding: 10px;
   margin-bottom: 10px;
@@ -85,13 +55,10 @@ h2, h3 {
 }
 
 button {
-  background-color: #4CAF50;
+  background-color: #003d02;
   color: white;
   cursor: pointer;
-<<<<<<< HEAD
-=======
   border: none;
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
 }
 
 button:hover {
@@ -108,12 +75,6 @@ button:hover {
   margin-right: 5px;
 }
 
-<<<<<<< HEAD
-.visitor-list ul {
-  list-style-type: none;
-  padding: 0;
-  max-height: 200px;
-=======
 .date-picker {
   display: flex;
   flex-direction: column;
@@ -140,27 +101,20 @@ ul {
   padding: 0;
   margin-top: 10px;
   max-height: 300px;
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
   overflow-y: auto;
 }
 
 li {
-<<<<<<< HEAD
-=======
   display: flex;
   justify-content: space-between;
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
   padding: 8px;
   border-bottom: 1px solid #ddd;
 }
 
-<<<<<<< HEAD
-=======
 li p {
   margin: 0;
 }
 
->>>>>>> 2d37ba214d79f2d07053816ebfcc90a11a352fc2
 button#downloadBtn {
   background-color: #008CBA;
 }
