@@ -1,61 +1,74 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro de visitantes da Igreja</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Visitantes - Semente Santa</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
-  <!-- Navbar -->
-  <nav class="navbar">
-    <img src="logo/logo.png" alt="Logo da Igreja" class="logo">
-  </nav>
-
-  <div class="container">
-    <div class="card">
-      <h2>Registro de Visitantes</h2>
-
-      <!-- Seletor de Data -->
-      <div class="date-picker">
-        <label for="selectedDate">Data do registro:</label>
-        <input type="date" id="selectedDate">
-      </div>
-
-      <div class="form">
-        <input type="text" id="name" placeholder="Nome">
-        <input type="tel" id="phone" placeholder="Telefone">
-        <div class="checkbox">
-          <input type="checkbox" id="firstTime">
-          <label for="firstTime">Primeira vez na Igreja</label>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <img src="img/logo.png" alt="Logo da Igreja" class="logo">
+    </nav>
+    
+    <div class="container">
+        <div class="card">
+            <div class="logo-container">
+            </div>
+            
+            <h2>Registro de Visitantes</h2>
+            
+            <!-- Seleção de Data para Registro -->
+            <div class="date-picker">
+                <button id="dateSelectorBtn" class="button button-outline">
+                    <span class="icon">📅</span>
+                    <span id="selectedDateText">Data do Registro: </span>
+                </button>
+                <div id="datePickerDropdown" class="date-dropdown" style="display: none;">
+                    <input type="date" id="selectedDateInput" class="date-input">
+                </div>
+            </div>
+            
+            <!-- Formulário de Cadastro -->
+            <div style="margin-top: 12px;">
+                <input type="text" id="nameInput" placeholder="Nome" class="input-field">
+                <input type="tel" id="phoneInput" placeholder="Telefone" class="input-field">
+                
+                <div class="checkbox-container">
+                    <input type="checkbox" id="firstTimeCheckbox">
+                    <label for="firstTimeCheckbox">Primeira vez na igreja</label>
+                </div>
+                
+                <button id="addVisitorBtn" class="button">Adicionar Visitante</button>
+            </div>
+            
+            <!-- Visualização de Data -->
+            <div class="date-picker">
+                <button id="viewDateSelectorBtn" class="button button-outline">
+                    <span class="icon">📅</span>
+                    <span id="viewDateText">Visualizar Registros: </span>
+                </button>
+                <div id="viewDatePickerDropdown" class="date-dropdown" style="display: none;">
+                    <input type="date" id="viewDateInput" class="date-input">
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="stats">
+                <p>Total de Visitantes: <span id="totalVisitorsCount">0</span></p>
+                <p>Visitantes pela Primeira Vez: <span id="firstTimeVisitorsCount">0</span></p>
+            </div>
+            
+            <!-- Botão de Download -->
+            <button id="downloadBtn" class="button">Baixar Lista</button>
+            
+            <!-- Lista de Visitantes -->
+            <div id="visitorsList" class="visitors-list"></div>
         </div>
-        <button id="addVisitorBtn">Adicionar visitante</button>
-      </div>
-
-      <!-- Estatísticas -->
-      <div class="visitor-stats">
-        <p><strong>Total de visitantes:</strong> <span id="totalVisitors">0</span></p>
-        <p><strong>Visitantes pela primeira vez:</strong> <span id="firstTimeVisitors">0</span></p>
-      </div>
-
-      <!-- Selecionar Data para Visualização -->
-      <div class="date-picker">
-        <label for="viewDate">Visualizar registros:</label>
-        <input type="date" id="viewDate">
-      </div>
-
-      <div class="visitor-list">
-        <h3>Visitantes do dia: <span id="dateView"></span></h3>
-        <ul id="visitorList">
-          <li>Nenhum visitante registrado nesta data.</li>
-        </ul>
-        <button id="downloadBtn">Baixar lista</button>
-      </div>
     </div>
-  </div>
 
-  <script src="script.js"></script>
 
+    <script src="js/script.js"></script>
 </body>
 </html>
