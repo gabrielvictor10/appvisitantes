@@ -3,6 +3,12 @@ let visitors = [];
 let selectedDate = new Date();
 let viewDate = new Date();
 
+// Inicialização do Supabase
+const supabaseUrl = 'https://xyzcompany.supabase.co'; // Substitua pela sua URL do Supabase
+const supabaseKey = 'public-anon-key'; // Substitua pela sua chave pública do Supabase
+const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+let supabaseEnabled = !!window.supabase;
+
 // Elementos do DOM
 const selectedDateText = document.getElementById('selectedDateText');
 const selectedDateInput = document.getElementById('selectedDateInput');
@@ -59,16 +65,132 @@ function initializeDates() {
     viewDateInput.value = viewDate.toISOString().split('T')[0];
 }
 
+// Inicializar tempo real para sincronismo (apenas se Supabase estiver disponível)
+function initializeRealtime() {
+    if (!supabaseEnabled) return;
+    
+    // Inscrever-se nas mudanças da tabela visitors
+    const subscription = supabase
+        .channel('visitors-channel')
+        .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'visitors' }, 
+            payload => {
+                syncVisitorsFromSupabase(); // Sincronizar visitantes quando houver alterações
+            }
+        )
+        .subscribe();
+}
+
 // Carregar visitantes do localStorage
 function loadVisitors() {
     const savedVisitors = JSON.parse(localStorage.getItem('churchVisitors') || '[]');
     visitors = savedVisitors;
     renderVisitorsList();
+    
+    // Se Supabase estiver disponível, também sincroniza dados
+    if (supabaseEnabled) {
+        syncVisitorsFromSupabase();
+    }
 }
 
-// Salvar visitantes no localStorage
-function saveVisitors() {
+// Sincronizar visitantes do Supabase
+async function syncVisitorsFromSupabase() {
+    if (!supabaseEnabled) return;
+    
+    try {
+        // Busca todos os visitantes no Supabase
+        const { data, error } = await supabase
+            .from('visitors')
+            .select('*');
+            
+        if (error) throw error;
+        
+        // Se tiver dados do Supabase
+        if (data && data.length > 0) {
+            // Converter formato do Supabase para o formato do localStorage se necessário
+            const formattedData = data.map(visitor => ({
+                id: visitor.id || Date.now(),
+                name: visitor.name,
+                phone: visitor.phone,
+                isFirstTime: visitor.isFirstTime,
+                date: visitor.date
+            }));
+            
+            // Mescla dados do localStorage com Supabase, mantendo versões mais recentes
+            // Aqui estamos assumindo que IDs iguais referem-se ao mesmo registro
+            const mergedVisitors = [];
+            const allIds = new Set([
+                ...visitors.map(v => v.id.toString()), 
+                ...formattedData.map(v => v.id.toString())
+            ]);
+            
+            allIds.forEach(id => {
+                const localVisitor = visitors.find(v => v.id.toString() === id);
+                const remoteVisitor = formattedData.find(v => v.id.toString() === id);
+                
+                if (localVisitor && remoteVisitor) {
+                    // Se temos ambos, pegamos o mais recente
+                    // Aqui seria ideal ter um timestamp para comparação
+                    mergedVisitors.push(remoteVisitor); // Priorizando dados do servidor
+                } else if (localVisitor) {
+                    mergedVisitors.push(localVisitor);
+                } else if (remoteVisitor) {
+                    mergedVisitors.push(remoteVisitor);
+                }
+            });
+            
+            visitors = mergedVisitors;
+            saveVisitors(false); // Salva no localStorage, mas não reenvia para Supabase
+            renderVisitorsList();
+        }
+    } catch (error) {
+        console.error("Erro ao sincronizar com Supabase:", error);
+        // Continua usando dados do localStorage em caso de erro
+    }
+}
+
+// Salvar visitantes no localStorage e opcionalmente no Supabase
+function saveVisitors(syncToSupabase = true) {
+    // Sempre salva no localStorage
     localStorage.setItem('churchVisitors', JSON.stringify(visitors));
+    
+    // Sincroniza com Supabase se habilitado e solicitado
+    if (supabaseEnabled && syncToSupabase) {
+        syncVisitorsToSupabase();
+    }
+}
+
+// Sincronizar visitantes para o Supabase
+async function syncVisitorsToSupabase() {
+    if (!supabaseEnabled) return;
+    
+    try {
+        // Poderíamos implementar uma lógica mais complexa aqui para sincronizar
+        // apenas registros novos ou modificados, mas por simplicidade vamos apenas
+        // enviar o visitante mais recente, assumindo que ele acabou de ser adicionado
+        
+        if (visitors.length > 0) {
+            const latestVisitor = visitors[visitors.length - 1];
+            
+            // Verifica se este visitante já existe no Supabase
+            const { data: existingData } = await supabase
+                .from('visitors')
+                .select('id')
+                .eq('id', latestVisitor.id);
+                
+            if (!existingData || existingData.length === 0) {
+                // Se não existe, insere
+                const { error: insertError } = await supabase
+                    .from('visitors')
+                    .insert([latestVisitor]);
+                
+                if (insertError) throw insertError;
+            }
+        }
+    } catch (error) {
+        console.error("Erro ao sincronizar com Supabase:", error);
+        // Continua salvando no localStorage mesmo se falhar no Supabase
+    }
 }
 
 // Adicionar novo visitante
@@ -91,7 +213,7 @@ function addVisitor() {
     };
     
     visitors.push(newVisitor);
-    saveVisitors();
+    saveVisitors(); // Isso vai salvar no localStorage e sincronizar com Supabase
     
     // Limpar campos
     nameInput.value = '';
@@ -105,9 +227,25 @@ function addVisitor() {
 }
 
 // Remover visitante
-function removeVisitor(id) {
+async function removeVisitor(id) {
     visitors = visitors.filter(visitor => visitor.id !== id);
-    saveVisitors();
+    saveVisitors(); // Salva no localStorage
+    
+    // Se Supabase estiver disponível, também remove lá
+    if (supabaseEnabled) {
+        try {
+            const { error } = await supabase
+                .from('visitors')
+                .delete()
+                .eq('id', id);
+                
+            if (error) throw error;
+        } catch (error) {
+            console.error("Erro ao remover visitante do Supabase:", error);
+            // Continua o fluxo mesmo se falhar no Supabase
+        }
+    }
+    
     renderVisitorsList();
 }
 
@@ -242,4 +380,5 @@ document.addEventListener('click', (e) => {
 
 // Inicializar aplicação
 initializeDates();
-loadVisitors();
+initializeRealtime(); // Inicia tempo real apenas se Supabase estiver disponível
+loadVisitors(); // Carrega do localStorage e sincroniza com Supabase se disponível

@@ -68,7 +68,34 @@
         </div>
     </div>
 
-
-    <script src="js/script.js"></script>
+    <!-- Importação condicional da biblioteca Supabase -->
+    <script>
+        // Função para verificar se a biblioteca Supabase está disponível
+        function loadSupabase() {
+            const supabaseScript = document.createElement('script');
+            supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+            supabaseScript.onerror = function() {
+                console.log('Supabase não disponível. Usando apenas localStorage.');
+                // Se não conseguir carregar, inicia o script principal mesmo assim
+                initApp();
+            };
+            supabaseScript.onload = function() {
+                console.log('Supabase carregado com sucesso.');
+                // Inicia o script principal após carregar o Supabase
+                initApp();
+            };
+            document.body.appendChild(supabaseScript);
+        }
+        
+        // Função para iniciar a aplicação
+        function initApp() {
+            const appScript = document.createElement('script');
+            appScript.src = 'js/script.js';
+            document.body.appendChild(appScript);
+        }
+        
+        // Tenta carregar o Supabase
+        loadSupabase();
+    </script>
 </body>
 </html>
