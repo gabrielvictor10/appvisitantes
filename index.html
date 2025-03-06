@@ -64,39 +64,90 @@
             <!-- Botão de Download -->
             <button id="downloadBtn" class="button">Baixar Lista</button>
             
+            <!-- Botão de Sincronização Manual -->
+            <button id="syncBtn" class="button button-outline" style="margin-top: 8px;">
+                <span class="icon">🔄</span>
+                <span>Sincronizar Dados</span>
+            </button>
+            
             <!-- Lista de Visitantes -->
             <div id="visitorsList" class="visitors-list"></div>
+            
+            <!-- Console de Depuração -->
+            <div id="debugPanel" style="display: none; margin-top: 20px;">
+                <h3 style="margin-bottom: 8px;">Console de Depuração</h3>
+                <div id="debugLog" style="background: #f1f1f1; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+                <button id="toggleDebugBtn" class="button button-outline" style="margin-top: 8px;">Mostrar Depuração</button>
+            </div>
         </div>
     </div>
 
-    <!-- Importação condicional da biblioteca Supabase -->
+    <!-- Implementação melhorada da importação da biblioteca Supabase -->
     <script>
-        // Função para verificar se a biblioteca Supabase está disponível
+        // Função para carregar o Supabase de forma mais robusta
         function loadSupabase() {
-            const supabaseScript = document.createElement('script');
-            supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-            supabaseScript.onerror = function() {
-                console.log('Supabase não disponível. Usando apenas localStorage.');
-                // Se não conseguir carregar, inicia o script principal mesmo assim
-                initApp();
-            };
-            supabaseScript.onload = function() {
-                console.log('Supabase carregado com sucesso.');
-                // Inicia o script principal após carregar o Supabase
-                initApp();
-            };
-            document.body.appendChild(supabaseScript);
+            return new Promise((resolve, reject) => {
+                console.log('Tentando carregar Supabase...');
+                
+                const supabaseScript = document.createElement('script');
+                supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+                
+                supabaseScript.onload = function() {
+                    console.log('Supabase carregado com sucesso.');
+                    resolve(true);
+                };
+                
+                supabaseScript.onerror = function(error) {
+                    console.error('Erro ao carregar Supabase:', error);
+                    resolve(false);
+                };
+                
+                document.body.appendChild(supabaseScript);
+            });
         }
-        
+
         // Função para iniciar a aplicação
-        function initApp() {
+        async function startApp() {
+            let supabaseEnabled = false;
+            const supabaseLoaded = await loadSupabase();
+            
+            if (supabaseLoaded) {
+                try {
+                    // Teste a conexão com o Supabase
+                    const supabase = window.supabase.createClient(
+                        'https://qdttsbnsijllhkgrpdmc.supabase.co',
+                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw'
+                    );
+                    
+                    const { data, error } = await supabase.from('visitors').select('count()', { count: 'exact' });
+                    
+                    if (error) {
+                        console.error('Erro ao conectar com Supabase:', error);
+                        supabaseEnabled = false;
+                    } else {
+                        console.log('Conexão com Supabase estabelecida com sucesso!');
+                        supabaseEnabled = true;
+                    }
+                } catch (e) {
+                    console.error('Falha ao inicializar cliente Supabase:', e);
+                    supabaseEnabled = false;
+                }
+            } else {
+                console.log('Supabase não disponível. Usando apenas localStorage.');
+                supabaseEnabled = false;
+            }
+            
+            // Define a variável global para o script.js acessar
+            window.supabaseEnabled = supabaseEnabled;
+            
+            // Carrega o script principal
             const appScript = document.createElement('script');
             appScript.src = 'js/script.js';
             document.body.appendChild(appScript);
         }
-        
-        // Tenta carregar o Supabase
-        loadSupabase();
+
+        // Inicia a aplicação
+        startApp();
     </script>
 </body>
 </html>
