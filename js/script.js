@@ -3,20 +3,6 @@ let visitors = [];
 let selectedDate = new Date();
 let viewDate = new Date();
 
-// Configuração do Firebase - Adicione estas linhas
-const firebaseConfig = {
-    apiKey: "AIzaSyA7MQhioNOIoO2mgsBnTy59a9izbuuR_20",
-    authDomain: "semente-santa-visitantes.firebaseapp.com",
-    projectId: "semente-santa-visitantes",
-    storageBucket: "semente-santa-visitantes.firebasestorage.app",
-    messagingSenderId: "1036982320274",
-    appId: "1:1036982320274:web:ec547842c6f3da3bddba4b"
-  };
-
-// Inicializar Firebase - Adicione estas linhas
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
 // Elementos do DOM
 const selectedDateText = document.getElementById('selectedDateText');
 const selectedDateInput = document.getElementById('selectedDateInput');
@@ -36,6 +22,19 @@ const downloadBtn = document.getElementById('downloadBtn');
 const visitorsList = document.getElementById('visitorsList');
 const totalVisitorsCount = document.getElementById('totalVisitorsCount');
 const firstTimeVisitorsCount = document.getElementById('firstTimeVisitorsCount');
+
+// Configuração do Dexie.js para IndexedDB
+const db = new Dexie('VisitorsDB');
+db.version(1).stores({
+    visitors: '++id, name, phone, isFirstTime, date, timestamp'
+});
+
+// Para sincronização entre abas
+window.addEventListener('storage', function(e) {
+    if (e.key === 'visitorsUpdated') {
+        loadVisitors();
+    }
+});
 
 // Formatação de data no padrão brasileiro (dd/mm/yyyy)
 function formatDate(date) {
@@ -73,31 +72,27 @@ function initializeDates() {
     viewDateInput.value = viewDate.toISOString().split('T')[0];
 }
 
-// Carregar visitantes do Firestore
-function loadVisitors() {
+// Carregar visitantes do IndexedDB
+async function loadVisitors() {
     // Atualiza o texto da UI antes de carregar
     viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
     
-    // Busca visitantes no Firestore com base na data selecionada
-    db.collection("visitors")
-        .where("date", "==", formatDate(viewDate))
-        .onSnapshot((snapshot) => {
-            visitors = [];
-            snapshot.forEach((doc) => {
-                visitors.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            renderVisitorsList();
-        }, (error) => {
-            console.error("Erro ao carregar visitantes:", error);
-            alert("Erro ao carregar dados: " + error.message);
-        });
+    try {
+        // Busca visitantes no IndexedDB com base na data selecionada
+        visitors = await db.visitors
+            .where('date')
+            .equals(formatDate(viewDate))
+            .toArray();
+        
+        renderVisitorsList();
+    } catch (error) {
+        console.error("Erro ao carregar visitantes:", error);
+        alert("Erro ao carregar dados: " + error.message);
+    }
 }
 
 // Adicionar novo visitante
-function addVisitor() {
+async function addVisitor() {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
     const isFirstTime = firstTimeCheckbox.checked;
@@ -112,39 +107,45 @@ function addVisitor() {
         phone,
         isFirstTime,
         date: formatDate(selectedDate),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: new Date().getTime()
     };
     
-    // Salvar no Firestore
-    db.collection("visitors")
-        .add(newVisitor)
-        .then(() => {
-            // Limpar campos
-            nameInput.value = '';
-            phoneInput.value = '';
-            firstTimeCheckbox.checked = false;
-            
-            // Atualizar lista se a data de visualização for a mesma da inclusão
-            if (formatDate(selectedDate) === formatDate(viewDate)) {
-                // A lista será atualizada automaticamente pelo onSnapshot
-            }
-        })
-        .catch((error) => {
-            console.error("Erro ao adicionar visitante:", error);
-            alert("Erro ao adicionar visitante: " + error.message);
-        });
+    try {
+        // Salvar no IndexedDB
+        await db.visitors.add(newVisitor);
+        
+        // Notificar outras abas sobre a atualização
+        localStorage.setItem('visitorsUpdated', Date.now().toString());
+        
+        // Limpar campos
+        nameInput.value = '';
+        phoneInput.value = '';
+        firstTimeCheckbox.checked = false;
+        
+        // Atualizar lista se a data de visualização for a mesma da inclusão
+        if (formatDate(selectedDate) === formatDate(viewDate)) {
+            loadVisitors();
+        }
+    } catch (error) {
+        console.error("Erro ao adicionar visitante:", error);
+        alert("Erro ao adicionar visitante: " + error.message);
+    }
 }
 
 // Remover visitante
-function removeVisitor(id) {
-    db.collection("visitors")
-        .doc(id)
-        .delete()
-        .catch((error) => {
-            console.error("Erro ao remover visitante:", error);
-            alert("Erro ao remover visitante: " + error.message);
-        });
-    // Não é necessário atualizar a lista manualmente, o onSnapshot fará isso
+async function removeVisitor(id) {
+    try {
+        await db.visitors.delete(id);
+        
+        // Notificar outras abas sobre a atualização
+        localStorage.setItem('visitorsUpdated', Date.now().toString());
+        
+        // Atualizar a lista
+        loadVisitors();
+    } catch (error) {
+        console.error("Erro ao remover visitante:", error);
+        alert("Erro ao remover visitante: " + error.message);
+    }
 }
 
 // Renderizar lista de visitantes
