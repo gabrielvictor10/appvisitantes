@@ -23,19 +23,6 @@ const visitorsList = document.getElementById('visitorsList');
 const totalVisitorsCount = document.getElementById('totalVisitorsCount');
 const firstTimeVisitorsCount = document.getElementById('firstTimeVisitorsCount');
 
-// Configuração do Dexie.js para IndexedDB
-const db = new Dexie('VisitorsDB');
-db.version(1).stores({
-    visitors: '++id, name, phone, isFirstTime, date, timestamp'
-});
-
-// Para sincronização entre abas
-window.addEventListener('storage', function(e) {
-    if (e.key === 'visitorsUpdated') {
-        loadVisitors();
-    }
-});
-
 // Formatação de data no padrão brasileiro (dd/mm/yyyy)
 function formatDate(date) {
     return date.toLocaleDateString('pt-BR', {
@@ -72,27 +59,20 @@ function initializeDates() {
     viewDateInput.value = viewDate.toISOString().split('T')[0];
 }
 
-// Carregar visitantes do IndexedDB
-async function loadVisitors() {
-    // Atualiza o texto da UI antes de carregar
-    viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
-    
-    try {
-        // Busca visitantes no IndexedDB com base na data selecionada
-        visitors = await db.visitors
-            .where('date')
-            .equals(formatDate(viewDate))
-            .toArray();
-        
-        renderVisitorsList();
-    } catch (error) {
-        console.error("Erro ao carregar visitantes:", error);
-        alert("Erro ao carregar dados: " + error.message);
-    }
+// Carregar visitantes do localStorage
+function loadVisitors() {
+    const savedVisitors = JSON.parse(localStorage.getItem('churchVisitors') || '[]');
+    visitors = savedVisitors;
+    renderVisitorsList();
+}
+
+// Salvar visitantes no localStorage
+function saveVisitors() {
+    localStorage.setItem('churchVisitors', JSON.stringify(visitors));
 }
 
 // Adicionar novo visitante
-async function addVisitor() {
+function addVisitor() {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
     const isFirstTime = firstTimeCheckbox.checked;
@@ -103,58 +83,46 @@ async function addVisitor() {
     }
     
     const newVisitor = {
+        id: Date.now(),
         name,
         phone,
         isFirstTime,
-        date: formatDate(selectedDate),
-        timestamp: new Date().getTime()
+        date: formatDate(selectedDate)
     };
     
-    try {
-        // Salvar no IndexedDB
-        await db.visitors.add(newVisitor);
-        
-        // Notificar outras abas sobre a atualização
-        localStorage.setItem('visitorsUpdated', Date.now().toString());
-        
-        // Limpar campos
-        nameInput.value = '';
-        phoneInput.value = '';
-        firstTimeCheckbox.checked = false;
-        
-        // Atualizar lista se a data de visualização for a mesma da inclusão
-        if (formatDate(selectedDate) === formatDate(viewDate)) {
-            loadVisitors();
-        }
-    } catch (error) {
-        console.error("Erro ao adicionar visitante:", error);
-        alert("Erro ao adicionar visitante: " + error.message);
+    visitors.push(newVisitor);
+    saveVisitors();
+    
+    // Limpar campos
+    nameInput.value = '';
+    phoneInput.value = '';
+    firstTimeCheckbox.checked = false;
+    
+    // Atualizar lista se a data de visualização for a mesma da inclusão
+    if (formatDate(selectedDate) === formatDate(viewDate)) {
+        renderVisitorsList();
     }
 }
 
 // Remover visitante
-async function removeVisitor(id) {
-    try {
-        await db.visitors.delete(id);
-        
-        // Notificar outras abas sobre a atualização
-        localStorage.setItem('visitorsUpdated', Date.now().toString());
-        
-        // Atualizar a lista
-        loadVisitors();
-    } catch (error) {
-        console.error("Erro ao remover visitante:", error);
-        alert("Erro ao remover visitante: " + error.message);
-    }
+function removeVisitor(id) {
+    visitors = visitors.filter(visitor => visitor.id !== id);
+    saveVisitors();
+    renderVisitorsList();
 }
 
 // Renderizar lista de visitantes
 function renderVisitorsList() {
+    // Filtrar visitantes pela data selecionada para visualização
+    const filteredVisitors = visitors.filter(v => 
+        v.date === formatDate(viewDate)
+    );
+    
     // Limpar lista
     visitorsList.innerHTML = '';
     
     // Adicionar visitantes à lista
-    visitors.forEach(visitor => {
+    filteredVisitors.forEach(visitor => {
         const visitorItem = document.createElement('div');
         visitorItem.className = 'visitor-item';
         
@@ -191,26 +159,34 @@ function renderVisitorsList() {
     });
     
     // Atualizar estatísticas
-    totalVisitorsCount.textContent = visitors.length;
-    firstTimeVisitorsCount.textContent = visitors.filter(v => v.isFirstTime).length;
+    totalVisitorsCount.textContent = filteredVisitors.length;
+    firstTimeVisitorsCount.textContent = filteredVisitors.filter(v => v.isFirstTime).length;
 }
 
 // Gerar texto para download
 function generateDownloadText() {
+    const filteredVisitors = visitors.filter(v => 
+        v.date === formatDate(viewDate)
+    );
+    
     const header = `Visitantes - ${formatDate(viewDate)}\n\n`;
-    const visitorsList = visitors.map(v => 
+    const visitorsList = filteredVisitors.map(v => 
         `Nome: ${v.name}\nTelefone: ${v.phone}\nPrimeira Vez: ${v.isFirstTime ? 'Sim' : 'Não'}\n---`
     ).join('\n');
     
-    const totalStats = `\n\nTotal de Visitantes: ${visitors.length}\n` +
-        `Visitantes pela Primeira Vez: ${visitors.filter(v => v.isFirstTime).length}`;
+    const totalStats = `\n\nTotal de Visitantes: ${filteredVisitors.length}\n` +
+        `Visitantes pela Primeira Vez: ${filteredVisitors.filter(v => v.isFirstTime).length}`;
     
     return header + visitorsList + totalStats;
 }
 
 // Baixar lista como texto
 function downloadVisitorsList() {
-    if (visitors.length === 0) {
+    const filteredVisitors = visitors.filter(v => 
+        v.date === formatDate(viewDate)
+    );
+    
+    if (filteredVisitors.length === 0) {
         alert('Não há visitantes para baixar nesta data.');
         return;
     }
@@ -247,7 +223,7 @@ viewDateInput.addEventListener('change', (e) => {
     viewDate = newDate;
     viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
     viewDatePickerDropdown.style.display = 'none';
-    loadVisitors(); // Recarrega os visitantes com a nova data
+    renderVisitorsList();
 });
 
 addVisitorBtn.addEventListener('click', addVisitor);
