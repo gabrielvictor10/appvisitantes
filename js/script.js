@@ -4,8 +4,8 @@ let selectedDate = new Date();
 let viewDate = new Date();
 
 // Inicialização do Supabase
-const supabaseUrl = 'https://xyzcompany.supabase.co'; // Substitua pela sua URL do Supabase
-const supabaseKey = 'public-anon-key'; // Substitua pela sua chave pública do Supabase
+const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co'; // Substitua pela sua URL do Supabase
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw'; // Substitua pela sua chave pública do Supabase
 const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 let supabaseEnabled = !!window.supabase;
 
