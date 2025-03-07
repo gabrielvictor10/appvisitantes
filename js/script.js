@@ -2,6 +2,7 @@
 let visitors = [];
 let selectedDate = new Date();
 let viewDate = new Date();
+let offlineQueue = []; // Fila para armazenar operações offline
 
 // Inicialização do Supabase
 const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co';
@@ -52,28 +53,87 @@ function createDateFromString(dateString) {
     return new Date(year, month - 1, day);
 }
 
+// Gerenciamento de conexão de rede
+const ConnectionManager = {
+    isOnline: navigator.onLine,
+    
+    init() {
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            console.log('Conexão online detectada');
+            this.processPendingOperations();
+        });
+        
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            console.log('Aplicação está offline');
+        });
+    },
+    
+    async processPendingOperations() {
+        if (!supabaseEnabled || !this.isOnline || offlineQueue.length === 0) return;
+        
+        console.log(`Processando ${offlineQueue.length} operações pendentes`);
+        
+        while (offlineQueue.length > 0) {
+            const operation = offlineQueue.shift();
+            
+            try {
+                switch (operation.type) {
+                    case 'add':
+                        await DataManager.addToSupabase(operation.data);
+                        break;
+                    case 'remove':
+                        await DataManager.removeFromSupabase(operation.id);
+                        break;
+                }
+            } catch (error) {
+                console.error('Erro ao processar operação pendente:', error);
+                // Recoloca a operação na fila
+                offlineQueue.push(operation);
+                break;
+            }
+        }
+        
+        // Salva estado da fila no localStorage
+        localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+    }
+};
+
 // Gerenciamento de dados
 const DataManager = {
     async load() {
+        // Carrega visitantes do localStorage
         visitors = JSON.parse(localStorage.getItem('churchVisitors') || '[]');
+        
+        // Carrega a fila de operações offline
+        offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+        
         renderVisitorsList();
         
         if (supabaseEnabled) {
-            await this.syncFromSupabase();
-            this.initializeRealtime();
+            if (ConnectionManager.isOnline) {
+                await this.syncFullFromSupabase(); // Sincronização completa inicialmente 
+                ConnectionManager.processPendingOperations(); // Processa operações pendentes
+                this.initializeRealtime(); // Inicia escuta em tempo real
+            }
         }
     },
     
     async save(syncToSupabase = true) {
+        // Sempre salva no localStorage
         localStorage.setItem('churchVisitors', JSON.stringify(visitors));
         
-        if (supabaseEnabled && syncToSupabase) {
+        // Sincroniza com Supabase se habilitado, online e solicitado
+        if (supabaseEnabled && syncToSupabase && ConnectionManager.isOnline) {
             await this.syncToSupabase();
         }
     },
     
-    async syncFromSupabase() {
-        if (!supabaseEnabled) return;
+    async syncFullFromSupabase() {
+        if (!supabaseEnabled || !ConnectionManager.isOnline) return;
+        
+        console.log('Realizando sincronização completa com Supabase');
         
         try {
             const { data, error } = await supabase.from('visitors').select('*');
@@ -82,12 +142,14 @@ const DataManager = {
             
             if (data && data.length > 0) {
                 const remoteVisitors = data.map(visitor => ({
-                    id: visitor.id || Date.now(),
+                    id: visitor.id,
                     name: visitor.name,
                     phone: visitor.phone,
                     isFirstTime: visitor.isFirstTime,
                     date: visitor.date
                 }));
+                
+                console.log(`Recebidos ${remoteVisitors.length} registros do Supabase`);
                 
                 // Mesclagem eficiente usando Map
                 const visitorMap = new Map();
@@ -99,7 +161,7 @@ const DataManager = {
                 remoteVisitors.forEach(v => visitorMap.set(v.id.toString(), v));
                 
                 visitors = Array.from(visitorMap.values());
-                this.save(false);
+                this.save(false); // Salva apenas local, sem loop de sincronização
                 renderVisitorsList();
             }
         } catch (error) {
@@ -107,11 +169,94 @@ const DataManager = {
         }
     },
     
-    async syncToSupabase() {
-        if (!supabaseEnabled) return;
+    async syncFromSupabase() {
+        // Versão mais leve de sincronização para atualizações em tempo real
+        if (!supabaseEnabled || !ConnectionManager.isOnline) return;
         
         try {
-            // Otimização: envia apenas o visitante mais recente
+            // Busca apenas registros mais recentes (últimos 10 minutos)
+            const tenMinutesAgo = new Date(Date.now() - 600000); // 10 minutos
+            const isoDate = tenMinutesAgo.toISOString();
+            
+            const { data, error } = await supabase
+                .from('visitors')
+                .select('*')
+                .gt('created_at', isoDate);
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                console.log(`Recebidas ${data.length} atualizações recentes`);
+                
+                const remoteVisitors = data.map(visitor => ({
+                    id: visitor.id,
+                    name: visitor.name,
+                    phone: visitor.phone,
+                    isFirstTime: visitor.isFirstTime,
+                    date: visitor.date
+                }));
+                
+                // Atualiza ou adiciona novos registros
+                let updated = false;
+                remoteVisitors.forEach(remoteVisitor => {
+                    const existingIndex = visitors.findIndex(v => v.id.toString() === remoteVisitor.id.toString());
+                    if (existingIndex >= 0) {
+                        visitors[existingIndex] = remoteVisitor;
+                    } else {
+                        visitors.push(remoteVisitor);
+                    }
+                    updated = true;
+                });
+                
+                if (updated) {
+                    this.save(false); // Salva apenas local, sem loop
+                    renderVisitorsList();
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao sincronizar atualizações do Supabase:", error);
+        }
+    },
+    
+    async addToSupabase(visitor) {
+        if (!supabaseEnabled || !ConnectionManager.isOnline) return false;
+        
+        try {
+            const { data, error } = await supabase
+                .from('visitors')
+                .insert([visitor])
+                .select();
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error("Erro ao adicionar visitante ao Supabase:", error);
+            return false;
+        }
+    },
+    
+    async removeFromSupabase(id) {
+        if (!supabaseEnabled || !ConnectionManager.isOnline) return false;
+        
+        try {
+            const { error } = await supabase
+                .from('visitors')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error("Erro ao remover visitante do Supabase:", error);
+            return false;
+        }
+    },
+    
+    async syncToSupabase() {
+        if (!supabaseEnabled || !ConnectionManager.isOnline) return;
+        
+        try {
+            // Envia apenas o visitante mais recente
             if (visitors.length > 0) {
                 const latestVisitor = visitors[visitors.length - 1];
                 
@@ -121,7 +266,8 @@ const DataManager = {
                     .eq('id', latestVisitor.id);
                     
                 if (!existingData || existingData.length === 0) {
-                    await supabase.from('visitors').insert([latestVisitor]);
+                    console.log(`Enviando visitante ${latestVisitor.name} para o Supabase`);
+                    await this.addToSupabase(latestVisitor);
                 }
             }
         } catch (error) {
@@ -132,29 +278,75 @@ const DataManager = {
     initializeRealtime() {
         if (!supabaseEnabled) return;
         
+        console.log('Inicializando escuta em tempo real do Supabase');
+        
         supabase
             .channel('visitors-channel')
             .on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'visitors' }, 
                 payload => {
-                    this.syncFromSupabase();
+                    console.log('Notificação de alteração recebida:', payload.eventType);
+                    this.syncFromSupabase(); // Versão leve da sincronização
                 }
             )
             .subscribe();
     },
     
-    async removeVisitor(id) {
-        visitors = visitors.filter(visitor => visitor.id !== id);
-        await this.save();
+    async addVisitor(visitorData) {
+        // Adiciona visitante à lista local
+        visitors.push(visitorData);
         
+        // Salva no localStorage
+        localStorage.setItem('churchVisitors', JSON.stringify(visitors));
+        
+        // Verifica se deve sincronizar com Supabase
         if (supabaseEnabled) {
-            try {
-                await supabase.from('visitors').delete().eq('id', id);
-            } catch (error) {
-                console.error("Erro ao remover visitante do Supabase:", error);
+            if (ConnectionManager.isOnline) {
+                // Tenta enviar diretamente se online
+                const success = await this.addToSupabase(visitorData);
+                if (!success) {
+                    // Se falhar, adiciona à fila offline
+                    offlineQueue.push({ type: 'add', data: visitorData });
+                    localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+                }
+            } else {
+                // Adiciona à fila offline se estiver offline
+                offlineQueue.push({ type: 'add', data: visitorData });
+                localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
             }
         }
         
+        // Atualiza a interface
+        if (formatDate(selectedDate) === formatDate(viewDate)) {
+            renderVisitorsList();
+        }
+        
+        return true;
+    },
+    
+    async removeVisitor(id) {
+        // Remove localmente
+        visitors = visitors.filter(visitor => visitor.id !== id);
+        localStorage.setItem('churchVisitors', JSON.stringify(visitors));
+        
+        // Verifica se deve sincronizar com Supabase
+        if (supabaseEnabled) {
+            if (ConnectionManager.isOnline) {
+                // Tenta remover diretamente se online
+                const success = await this.removeFromSupabase(id);
+                if (!success) {
+                    // Se falhar, adiciona à fila offline
+                    offlineQueue.push({ type: 'remove', id });
+                    localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+                }
+            } else {
+                // Adiciona à fila offline se estiver offline
+                offlineQueue.push({ type: 'remove', id });
+                localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+            }
+        }
+        
+        // Atualiza a interface
         renderVisitorsList();
     }
 };
@@ -196,8 +388,33 @@ const UIManager = {
             renderVisitorsList();
         });
         
-        DOM.addVisitorBtn.addEventListener('click', addVisitor);
-        DOM.downloadBtn.addEventListener('click', downloadVisitorsList);
+        DOM.addVisitorBtn.addEventListener('click', () => {
+            const name = DOM.nameInput.value.trim();
+            const phone = DOM.phoneInput.value.trim();
+            const isFirstTime = DOM.firstTimeCheckbox.checked;
+            
+            if (!name || !phone) {
+                alert('Por favor, preencha nome e telefone');
+                return;
+            }
+            
+            const newVisitor = {
+                id: Date.now(),
+                name,
+                phone,
+                isFirstTime,
+                date: formatDate(selectedDate)
+            };
+            
+            DataManager.addVisitor(newVisitor);
+            
+            // Limpar campos
+            DOM.nameInput.value = '';
+            DOM.phoneInput.value = '';
+            DOM.firstTimeCheckbox.checked = false;
+        });
+        
+        DOM.downloadBtn.addEventListener('click', this.downloadVisitorsList);
         
         // Fechar dropdowns ao clicar fora
         document.addEventListener('click', (e) => {
@@ -219,7 +436,7 @@ const UIManager = {
             return;
         }
         
-        const text = this.generateDownloadText(filteredVisitors);
+        const text = generateDownloadText(filteredVisitors);
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -227,54 +444,23 @@ const UIManager = {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    },
-    
-    generateDownloadText(filteredVisitors) {
-        const header = `Visitantes - ${formatDate(viewDate)}\n\n`;
-        const visitorsList = filteredVisitors.map(v => 
-            `Nome: ${v.name}\nTelefone: ${v.phone}\nPrimeira Vez: ${v.isFirstTime ? 'Sim' : 'Não'}\n---`
-        ).join('\n');
-        
-        const totalStats = `\n\nTotal de Visitantes: ${filteredVisitors.length}\n` +
-            `Visitantes pela Primeira Vez: ${filteredVisitors.filter(v => v.isFirstTime).length}`;
-        
-        return header + visitorsList + totalStats;
     }
 };
 
-// Funções de manipulação de visitantes
-function addVisitor() {
-    const name = DOM.nameInput.value.trim();
-    const phone = DOM.phoneInput.value.trim();
-    const isFirstTime = DOM.firstTimeCheckbox.checked;
+// Função para gerar texto para download
+function generateDownloadText(filteredVisitors) {
+    const header = `Visitantes - ${formatDate(viewDate)}\n\n`;
+    const visitorsList = filteredVisitors.map(v => 
+        `Nome: ${v.name}\nTelefone: ${v.phone}\nPrimeira Vez: ${v.isFirstTime ? 'Sim' : 'Não'}\n---`
+    ).join('\n');
     
-    if (!name || !phone) {
-        alert('Por favor, preencha nome e telefone');
-        return;
-    }
+    const totalStats = `\n\nTotal de Visitantes: ${filteredVisitors.length}\n` +
+        `Visitantes pela Primeira Vez: ${filteredVisitors.filter(v => v.isFirstTime).length}`;
     
-    const newVisitor = {
-        id: Date.now(),
-        name,
-        phone,
-        isFirstTime,
-        date: formatDate(selectedDate)
-    };
-    
-    visitors.push(newVisitor);
-    DataManager.save();
-    
-    // Limpar campos
-    DOM.nameInput.value = '';
-    DOM.phoneInput.value = '';
-    DOM.firstTimeCheckbox.checked = false;
-    
-    // Atualizar lista se a data de visualização for a mesma da inclusão
-    if (formatDate(selectedDate) === formatDate(viewDate)) {
-        renderVisitorsList();
-    }
+    return header + visitorsList + totalStats;
 }
 
+// Renderização da lista de visitantes
 function renderVisitorsList() {
     // Filtrar visitantes pela data selecionada para visualização
     const filteredVisitors = visitors.filter(v => v.date === formatDate(viewDate));
@@ -324,14 +510,11 @@ function renderVisitorsList() {
     DOM.firstTimeVisitorsCount.textContent = filteredVisitors.filter(v => v.isFirstTime).length;
 }
 
-function downloadVisitorsList() {
-    UIManager.downloadVisitorsList();
-}
-
 // Inicialização
 function init() {
     UIManager.initializeDates();
     UIManager.setupEventListeners();
+    ConnectionManager.init();
     DataManager.load();
 }
 
