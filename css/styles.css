@@ -17,17 +17,29 @@ body {
 /* Estilização da Navbar */
 .navbar {
     background-color: #ffe604f5; /* Cor verde para a navbar */
+    background-color: #ffe604f5; /* Cor amarela para a navbar */
     width: 100%;
     text-align: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0);
     padding: 0px 0; /* Ajuste automático ao tamanho do logo */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  
+
   .logo {
     height: 150px; /* Tamanho do logo */
   }
-  
 
+  /* Estilo para o nome da igreja */
+  .church-name {
+    color: #ffffff;
+    font-size: 25px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  
 /* Container principal */
 .container {
     max-width: 400px;
