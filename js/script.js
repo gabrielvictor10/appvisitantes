@@ -4,30 +4,30 @@ let selectedDate = new Date();
 let viewDate = new Date();
 
 // Inicialização do Supabase
-const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co'; // Substitua pela sua URL do Supabase
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw'; // Substitua pela sua chave pública do Supabase
+const supabaseUrl = 'https://qdttsbnsijllhkgrpdmc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkdHRzYm5zaWpsbGhrZ3JwZG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDExOTQzNDgsImV4cCI6MjA1Njc3MDM0OH0.CuZdeCC2wK73CrTt2cMIKxj20hAtgz_8qAhFt1EKkCw';
 const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 let supabaseEnabled = !!window.supabase;
 
 // Elementos do DOM
-const selectedDateText = document.getElementById('selectedDateText');
-const selectedDateInput = document.getElementById('selectedDateInput');
-const datePickerDropdown = document.getElementById('datePickerDropdown');
-const dateSelectorBtn = document.getElementById('dateSelectorBtn');
-
-const viewDateText = document.getElementById('viewDateText');
-const viewDateInput = document.getElementById('viewDateInput');
-const viewDatePickerDropdown = document.getElementById('viewDatePickerDropdown');
-const viewDateSelectorBtn = document.getElementById('viewDateSelectorBtn');
-
-const nameInput = document.getElementById('nameInput');
-const phoneInput = document.getElementById('phoneInput');
-const firstTimeCheckbox = document.getElementById('firstTimeCheckbox');
-const addVisitorBtn = document.getElementById('addVisitorBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-const visitorsList = document.getElementById('visitorsList');
-const totalVisitorsCount = document.getElementById('totalVisitorsCount');
-const firstTimeVisitorsCount = document.getElementById('firstTimeVisitorsCount');
+const DOM = {
+    selectedDateText: document.getElementById('selectedDateText'),
+    selectedDateInput: document.getElementById('selectedDateInput'),
+    datePickerDropdown: document.getElementById('datePickerDropdown'),
+    dateSelectorBtn: document.getElementById('dateSelectorBtn'),
+    viewDateText: document.getElementById('viewDateText'),
+    viewDateInput: document.getElementById('viewDateInput'),
+    viewDatePickerDropdown: document.getElementById('viewDatePickerDropdown'),
+    viewDateSelectorBtn: document.getElementById('viewDateSelectorBtn'),
+    nameInput: document.getElementById('nameInput'),
+    phoneInput: document.getElementById('phoneInput'),
+    firstTimeCheckbox: document.getElementById('firstTimeCheckbox'),
+    addVisitorBtn: document.getElementById('addVisitorBtn'),
+    downloadBtn: document.getElementById('downloadBtn'),
+    visitorsList: document.getElementById('visitorsList'),
+    totalVisitorsCount: document.getElementById('totalVisitorsCount'),
+    firstTimeVisitorsCount: document.getElementById('firstTimeVisitorsCount')
+};
 
 // Formatação de data no padrão brasileiro (dd/mm/yyyy)
 function formatDate(date) {
@@ -40,7 +40,6 @@ function formatDate(date) {
 
 // Ajustar data para evitar problemas de fuso horário
 function adjustDate(date) {
-    // Corrigindo o problema de fuso horário com uma abordagem mais robusta
     const userTimezoneOffset = date.getTimezoneOffset() * 60000;
     const adjusted = new Date(date.getTime() + userTimezoneOffset);
     adjusted.setHours(0, 0, 0, 0);
@@ -53,151 +52,201 @@ function createDateFromString(dateString) {
     return new Date(year, month - 1, day);
 }
 
-// Inicializar datas
-function initializeDates() {
-    selectedDate = adjustDate(new Date());
-    viewDate = adjustDate(new Date());
-    
-    selectedDateText.textContent = `Data do Registro: ${formatDate(selectedDate)}`;
-    viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
-    
-    selectedDateInput.value = selectedDate.toISOString().split('T')[0];
-    viewDateInput.value = viewDate.toISOString().split('T')[0];
-}
-
-// Inicializar tempo real para sincronismo (apenas se Supabase estiver disponível)
-function initializeRealtime() {
-    if (!supabaseEnabled) return;
-    
-    // Inscrever-se nas mudanças da tabela visitors
-    const subscription = supabase
-        .channel('visitors-channel')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'visitors' }, 
-            payload => {
-                syncVisitorsFromSupabase(); // Sincronizar visitantes quando houver alterações
-            }
-        )
-        .subscribe();
-}
-
-// Carregar visitantes do localStorage
-function loadVisitors() {
-    const savedVisitors = JSON.parse(localStorage.getItem('churchVisitors') || '[]');
-    visitors = savedVisitors;
-    renderVisitorsList();
-    
-    // Se Supabase estiver disponível, também sincroniza dados
-    if (supabaseEnabled) {
-        syncVisitorsFromSupabase();
-    }
-}
-
-// Sincronizar visitantes do Supabase
-async function syncVisitorsFromSupabase() {
-    if (!supabaseEnabled) return;
-    
-    try {
-        // Busca todos os visitantes no Supabase
-        const { data, error } = await supabase
-            .from('visitors')
-            .select('*');
-            
-        if (error) throw error;
+// Gerenciamento de dados
+const DataManager = {
+    async load() {
+        visitors = JSON.parse(localStorage.getItem('churchVisitors') || '[]');
+        renderVisitorsList();
         
-        // Se tiver dados do Supabase
-        if (data && data.length > 0) {
-            // Converter formato do Supabase para o formato do localStorage se necessário
-            const formattedData = data.map(visitor => ({
-                id: visitor.id || Date.now(),
-                name: visitor.name,
-                phone: visitor.phone,
-                isFirstTime: visitor.isFirstTime,
-                date: visitor.date
-            }));
-            
-            // Mescla dados do localStorage com Supabase, mantendo versões mais recentes
-            // Aqui estamos assumindo que IDs iguais referem-se ao mesmo registro
-            const mergedVisitors = [];
-            const allIds = new Set([
-                ...visitors.map(v => v.id.toString()), 
-                ...formattedData.map(v => v.id.toString())
-            ]);
-            
-            allIds.forEach(id => {
-                const localVisitor = visitors.find(v => v.id.toString() === id);
-                const remoteVisitor = formattedData.find(v => v.id.toString() === id);
-                
-                if (localVisitor && remoteVisitor) {
-                    // Se temos ambos, pegamos o mais recente
-                    // Aqui seria ideal ter um timestamp para comparação
-                    mergedVisitors.push(remoteVisitor); // Priorizando dados do servidor
-                } else if (localVisitor) {
-                    mergedVisitors.push(localVisitor);
-                } else if (remoteVisitor) {
-                    mergedVisitors.push(remoteVisitor);
-                }
-            });
-            
-            visitors = mergedVisitors;
-            saveVisitors(false); // Salva no localStorage, mas não reenvia para Supabase
-            renderVisitorsList();
+        if (supabaseEnabled) {
+            await this.syncFromSupabase();
+            this.initializeRealtime();
         }
-    } catch (error) {
-        console.error("Erro ao sincronizar com Supabase:", error);
-        // Continua usando dados do localStorage em caso de erro
-    }
-}
-
-// Salvar visitantes no localStorage e opcionalmente no Supabase
-function saveVisitors(syncToSupabase = true) {
-    // Sempre salva no localStorage
-    localStorage.setItem('churchVisitors', JSON.stringify(visitors));
+    },
     
-    // Sincroniza com Supabase se habilitado e solicitado
-    if (supabaseEnabled && syncToSupabase) {
-        syncVisitorsToSupabase();
-    }
-}
-
-// Sincronizar visitantes para o Supabase
-async function syncVisitorsToSupabase() {
-    if (!supabaseEnabled) return;
-    
-    try {
-        // Poderíamos implementar uma lógica mais complexa aqui para sincronizar
-        // apenas registros novos ou modificados, mas por simplicidade vamos apenas
-        // enviar o visitante mais recente, assumindo que ele acabou de ser adicionado
+    async save(syncToSupabase = true) {
+        localStorage.setItem('churchVisitors', JSON.stringify(visitors));
         
-        if (visitors.length > 0) {
-            const latestVisitor = visitors[visitors.length - 1];
+        if (supabaseEnabled && syncToSupabase) {
+            await this.syncToSupabase();
+        }
+    },
+    
+    async syncFromSupabase() {
+        if (!supabaseEnabled) return;
+        
+        try {
+            const { data, error } = await supabase.from('visitors').select('*');
             
-            // Verifica se este visitante já existe no Supabase
-            const { data: existingData } = await supabase
-                .from('visitors')
-                .select('id')
-                .eq('id', latestVisitor.id);
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                const remoteVisitors = data.map(visitor => ({
+                    id: visitor.id || Date.now(),
+                    name: visitor.name,
+                    phone: visitor.phone,
+                    isFirstTime: visitor.isFirstTime,
+                    date: visitor.date
+                }));
                 
-            if (!existingData || existingData.length === 0) {
-                // Se não existe, insere
-                const { error: insertError } = await supabase
+                // Mesclagem eficiente usando Map
+                const visitorMap = new Map();
+                
+                // Adiciona visitantes locais ao Map
+                visitors.forEach(v => visitorMap.set(v.id.toString(), v));
+                
+                // Substitui ou adiciona visitantes remotos
+                remoteVisitors.forEach(v => visitorMap.set(v.id.toString(), v));
+                
+                visitors = Array.from(visitorMap.values());
+                this.save(false);
+                renderVisitorsList();
+            }
+        } catch (error) {
+            console.error("Erro ao sincronizar com Supabase:", error);
+        }
+    },
+    
+    async syncToSupabase() {
+        if (!supabaseEnabled) return;
+        
+        try {
+            // Otimização: envia apenas o visitante mais recente
+            if (visitors.length > 0) {
+                const latestVisitor = visitors[visitors.length - 1];
+                
+                const { data: existingData } = await supabase
                     .from('visitors')
-                    .insert([latestVisitor]);
-                
-                if (insertError) throw insertError;
+                    .select('id')
+                    .eq('id', latestVisitor.id);
+                    
+                if (!existingData || existingData.length === 0) {
+                    await supabase.from('visitors').insert([latestVisitor]);
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao sincronizar com Supabase:", error);
+        }
+    },
+    
+    initializeRealtime() {
+        if (!supabaseEnabled) return;
+        
+        supabase
+            .channel('visitors-channel')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'visitors' }, 
+                payload => {
+                    this.syncFromSupabase();
+                }
+            )
+            .subscribe();
+    },
+    
+    async removeVisitor(id) {
+        visitors = visitors.filter(visitor => visitor.id !== id);
+        await this.save();
+        
+        if (supabaseEnabled) {
+            try {
+                await supabase.from('visitors').delete().eq('id', id);
+            } catch (error) {
+                console.error("Erro ao remover visitante do Supabase:", error);
             }
         }
-    } catch (error) {
-        console.error("Erro ao sincronizar com Supabase:", error);
-        // Continua salvando no localStorage mesmo se falhar no Supabase
+        
+        renderVisitorsList();
     }
-}
+};
 
-// Adicionar novo visitante
+// Gerenciamento da interface
+const UIManager = {
+    initializeDates() {
+        selectedDate = adjustDate(new Date());
+        viewDate = adjustDate(new Date());
+        
+        DOM.selectedDateText.textContent = `Data do Registro: ${formatDate(selectedDate)}`;
+        DOM.viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
+        
+        DOM.selectedDateInput.value = selectedDate.toISOString().split('T')[0];
+        DOM.viewDateInput.value = viewDate.toISOString().split('T')[0];
+    },
+    
+    setupEventListeners() {
+        DOM.dateSelectorBtn.addEventListener('click', () => {
+            DOM.datePickerDropdown.style.display = DOM.datePickerDropdown.style.display === 'none' ? 'block' : 'none';
+            DOM.viewDatePickerDropdown.style.display = 'none';
+        });
+        
+        DOM.selectedDateInput.addEventListener('change', (e) => {
+            selectedDate = createDateFromString(e.target.value);
+            DOM.selectedDateText.textContent = `Data do Registro: ${formatDate(selectedDate)}`;
+            DOM.datePickerDropdown.style.display = 'none';
+        });
+        
+        DOM.viewDateSelectorBtn.addEventListener('click', () => {
+            DOM.viewDatePickerDropdown.style.display = DOM.viewDatePickerDropdown.style.display === 'none' ? 'block' : 'none';
+            DOM.datePickerDropdown.style.display = 'none';
+        });
+        
+        DOM.viewDateInput.addEventListener('change', (e) => {
+            viewDate = createDateFromString(e.target.value);
+            DOM.viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
+            DOM.viewDatePickerDropdown.style.display = 'none';
+            renderVisitorsList();
+        });
+        
+        DOM.addVisitorBtn.addEventListener('click', addVisitor);
+        DOM.downloadBtn.addEventListener('click', downloadVisitorsList);
+        
+        // Fechar dropdowns ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!DOM.dateSelectorBtn.contains(e.target) && !DOM.datePickerDropdown.contains(e.target)) {
+                DOM.datePickerDropdown.style.display = 'none';
+            }
+            
+            if (!DOM.viewDateSelectorBtn.contains(e.target) && !DOM.viewDatePickerDropdown.contains(e.target)) {
+                DOM.viewDatePickerDropdown.style.display = 'none';
+            }
+        });
+    },
+    
+    downloadVisitorsList() {
+        const filteredVisitors = visitors.filter(v => v.date === formatDate(viewDate));
+        
+        if (filteredVisitors.length === 0) {
+            alert('Não há visitantes para baixar nesta data.');
+            return;
+        }
+        
+        const text = this.generateDownloadText(filteredVisitors);
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Visitantes_${formatDate(viewDate).replace(/\//g, '-')}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+    
+    generateDownloadText(filteredVisitors) {
+        const header = `Visitantes - ${formatDate(viewDate)}\n\n`;
+        const visitorsList = filteredVisitors.map(v => 
+            `Nome: ${v.name}\nTelefone: ${v.phone}\nPrimeira Vez: ${v.isFirstTime ? 'Sim' : 'Não'}\n---`
+        ).join('\n');
+        
+        const totalStats = `\n\nTotal de Visitantes: ${filteredVisitors.length}\n` +
+            `Visitantes pela Primeira Vez: ${filteredVisitors.filter(v => v.isFirstTime).length}`;
+        
+        return header + visitorsList + totalStats;
+    }
+};
+
+// Funções de manipulação de visitantes
 function addVisitor() {
-    const name = nameInput.value.trim();
-    const phone = phoneInput.value.trim();
-    const isFirstTime = firstTimeCheckbox.checked;
+    const name = DOM.nameInput.value.trim();
+    const phone = DOM.phoneInput.value.trim();
+    const isFirstTime = DOM.firstTimeCheckbox.checked;
     
     if (!name || !phone) {
         alert('Por favor, preencha nome e telefone');
@@ -213,12 +262,12 @@ function addVisitor() {
     };
     
     visitors.push(newVisitor);
-    saveVisitors(); // Isso vai salvar no localStorage e sincronizar com Supabase
+    DataManager.save();
     
     // Limpar campos
-    nameInput.value = '';
-    phoneInput.value = '';
-    firstTimeCheckbox.checked = false;
+    DOM.nameInput.value = '';
+    DOM.phoneInput.value = '';
+    DOM.firstTimeCheckbox.checked = false;
     
     // Atualizar lista se a data de visualização for a mesma da inclusão
     if (formatDate(selectedDate) === formatDate(viewDate)) {
@@ -226,38 +275,12 @@ function addVisitor() {
     }
 }
 
-// Remover visitante
-async function removeVisitor(id) {
-    visitors = visitors.filter(visitor => visitor.id !== id);
-    saveVisitors(); // Salva no localStorage
-    
-    // Se Supabase estiver disponível, também remove lá
-    if (supabaseEnabled) {
-        try {
-            const { error } = await supabase
-                .from('visitors')
-                .delete()
-                .eq('id', id);
-                
-            if (error) throw error;
-        } catch (error) {
-            console.error("Erro ao remover visitante do Supabase:", error);
-            // Continua o fluxo mesmo se falhar no Supabase
-        }
-    }
-    
-    renderVisitorsList();
-}
-
-// Renderizar lista de visitantes
 function renderVisitorsList() {
     // Filtrar visitantes pela data selecionada para visualização
-    const filteredVisitors = visitors.filter(v => 
-        v.date === formatDate(viewDate)
-    );
+    const filteredVisitors = visitors.filter(v => v.date === formatDate(viewDate));
     
     // Limpar lista
-    visitorsList.innerHTML = '';
+    DOM.visitorsList.innerHTML = '';
     
     // Adicionar visitantes à lista
     filteredVisitors.forEach(visitor => {
@@ -288,97 +311,29 @@ function renderVisitorsList() {
         const removeButton = document.createElement('button');
         removeButton.className = 'remove-button';
         removeButton.textContent = 'Remover';
-        removeButton.addEventListener('click', () => removeVisitor(visitor.id));
+        removeButton.addEventListener('click', () => DataManager.removeVisitor(visitor.id));
         
         visitorItem.appendChild(visitorInfo);
         visitorItem.appendChild(removeButton);
         
-        visitorsList.appendChild(visitorItem);
+        DOM.visitorsList.appendChild(visitorItem);
     });
     
     // Atualizar estatísticas
-    totalVisitorsCount.textContent = filteredVisitors.length;
-    firstTimeVisitorsCount.textContent = filteredVisitors.filter(v => v.isFirstTime).length;
+    DOM.totalVisitorsCount.textContent = filteredVisitors.length;
+    DOM.firstTimeVisitorsCount.textContent = filteredVisitors.filter(v => v.isFirstTime).length;
 }
 
-// Gerar texto para download
-function generateDownloadText() {
-    const filteredVisitors = visitors.filter(v => 
-        v.date === formatDate(viewDate)
-    );
-    
-    const header = `Visitantes - ${formatDate(viewDate)}\n\n`;
-    const visitorsList = filteredVisitors.map(v => 
-        `Nome: ${v.name}\nTelefone: ${v.phone}\nPrimeira Vez: ${v.isFirstTime ? 'Sim' : 'Não'}\n---`
-    ).join('\n');
-    
-    const totalStats = `\n\nTotal de Visitantes: ${filteredVisitors.length}\n` +
-        `Visitantes pela Primeira Vez: ${filteredVisitors.filter(v => v.isFirstTime).length}`;
-    
-    return header + visitorsList + totalStats;
-}
-
-// Baixar lista como texto
 function downloadVisitorsList() {
-    const filteredVisitors = visitors.filter(v => 
-        v.date === formatDate(viewDate)
-    );
-    
-    if (filteredVisitors.length === 0) {
-        alert('Não há visitantes para baixar nesta data.');
-        return;
-    }
-    
-    const blob = new Blob([generateDownloadText()], { type: 'text/plain;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `Visitantes_${formatDate(viewDate).replace(/\//g, '-')}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    UIManager.downloadVisitorsList();
 }
 
-// Event Listeners
-dateSelectorBtn.addEventListener('click', () => {
-    datePickerDropdown.style.display = datePickerDropdown.style.display === 'none' ? 'block' : 'none';
-    viewDatePickerDropdown.style.display = 'none';
-});
+// Inicialização
+function init() {
+    UIManager.initializeDates();
+    UIManager.setupEventListeners();
+    DataManager.load();
+}
 
-selectedDateInput.addEventListener('change', (e) => {
-    const newDate = createDateFromString(e.target.value);
-    selectedDate = newDate;
-    selectedDateText.textContent = `Data do Registro: ${formatDate(selectedDate)}`;
-    datePickerDropdown.style.display = 'none';
-});
-
-viewDateSelectorBtn.addEventListener('click', () => {
-    viewDatePickerDropdown.style.display = viewDatePickerDropdown.style.display === 'none' ? 'block' : 'none';
-    datePickerDropdown.style.display = 'none';
-});
-
-viewDateInput.addEventListener('change', (e) => {
-    const newDate = createDateFromString(e.target.value);
-    viewDate = newDate;
-    viewDateText.textContent = `Visualizar Registros: ${formatDate(viewDate)}`;
-    viewDatePickerDropdown.style.display = 'none';
-    renderVisitorsList();
-});
-
-addVisitorBtn.addEventListener('click', addVisitor);
-downloadBtn.addEventListener('click', downloadVisitorsList);
-
-// Clicar fora dos dropdowns fecha-os
-document.addEventListener('click', (e) => {
-    if (!dateSelectorBtn.contains(e.target) && !datePickerDropdown.contains(e.target)) {
-        datePickerDropdown.style.display = 'none';
-    }
-    
-    if (!viewDateSelectorBtn.contains(e.target) && !viewDatePickerDropdown.contains(e.target)) {
-        viewDatePickerDropdown.style.display = 'none';
-    }
-});
-
-// Inicializar aplicação
-initializeDates();
-initializeRealtime(); // Inicia tempo real apenas se Supabase estiver disponível
-loadVisitors(); // Carrega do localStorage e sincroniza com Supabase se disponível
+// Iniciar aplicação
+init();
